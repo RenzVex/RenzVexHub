@@ -1,12 +1,11 @@
--- [[ RENZVEX SERVER FINDER UI - MOBILE FRIENDLY ]]
+-- [[ RENZVEX SERVER FINDER UI - MOBILE FRIENDLY (FIXED) ]]
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui")
 
 local PlaceId = game.PlaceId
-local JobId = game.JobId
+local LocalPlayer = Players.LocalPlayer
 
 -- Hapus UI lama jika ada
 if CoreGui:FindFirstChild("RenzvexServerFinder") then
@@ -25,130 +24,148 @@ MainFrame.Size = UDim2.new(0, 320, 0, 240)
 MainFrame.Position = UDim2.new(0.5, -160, 0.5, -120)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true -- Biar bisa digeser-geser di layar HP
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
--- Judul Atas
-local TitleBar = Instance.new("TextLabel")
-TitleBar.Size = UDim2.new(1, 0, 0, 35)
-TitleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-TitleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleBar.TextSize = 14
-TitleBar.Font = Enum.Font.SourceSansBold
-TitleBar.Text = "  Renzvex Server Finder 🗂️"
-TitleBar.Parent = MainFrame
+-- Top Bar
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 8)
-TitleCorner.Parent = TitleBar
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.Parent = TopBar
 
--- Tombol Close (X)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Text = "Renzvex Server Finder "
+Title.Parent = TopBar
+
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 35, 0, 35)
-CloseBtn.Position = UDim2.new(1, -35, 0, 0)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 2)
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
 CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.SourceSansBold
 CloseBtn.Text = "X"
-CloseBtn.Parent = MainFrame
+CloseBtn.Parent = TopBar
 
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- ScrollingFrame buat daftar list server di bawahnya
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Size = UDim2.new(1, -16, 1, -50)
-ScrollFrame.Position = UDim2.new(0, 8, 0, 42)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.BorderSizePixel = 0
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollFrame.Parent = MainFrame
+-- Container List Server (ScrollingFrame)
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -20, 1, -50)
+ScrollingFrame.Position = UDim2.new(0, 10, 0, 45)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.ScrollBarThickness = 4
+ScrollingFrame.Parent = MainFrame
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 6)
-UIListLayout.Parent = ScrollFrame
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Parent = ScrollingFrame
 
--- Fungsi untuk ambil data server dan nampilin ke tombol list
+-- Fungsi Fetch Server Alternatif yang Lebih Stabil
 local function LoadServers()
     -- Bersihkan list lama
-    for _, v in pairs(ScrollFrame:GetChildren()) do
-        if v:IsA("Frame") then v:Destroy() end
+    for _, child in ipairs(ScrollingFrame:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
     end
-    
+
     local success, result = pcall(function()
-        local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=50"
+        local url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
         return HttpService:JSONDecode(game:HttpGet(url))
     end)
-    
+
     if success and result and result.data then
         local count = 0
         for _, server in ipairs(result.data) do
-            if type(server) == "table" and server.id ~= JobId then
-                local maxP = server.maxPlayers or 20
-                local playingP = server.playing or 0
+            if server.id ~= game.JobId and server.playing < server.maxPlayers then
+                count = count + 1
                 
-                if playingP < maxP then
-                    count = count + 1
-                    
-                    -- Baris item server
-                    local ServerRow = Instance.new("Frame")
-                    ServerRow.Size = UDim2.new(1, 0, 0, 32)
-                    ServerRow.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                    ServerRow.Parent = ScrollFrame
-                    
-                    local RowCorner = Instance.new("UICorner")
-                    RowCorner.CornerRadius = UDim.new(0, 4)
-                    RowCorner.Parent = ServerRow
-                    
-                    -- Label Info Pemain
-                    local InfoLabel = Instance.new("TextLabel")
-                    InfoLabel.Size = UDim2.new(0.65, 0, 1, 0)
-                    InfoLabel.Position = UDim2.new(0, 8, 0, 0)
-                    InfoLabel.BackgroundTransparency = 1
-                    InfoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-                    InfoLabel.TextSize = 12
-                    InfoLabel.Font = Enum.Font.Code
-                    InfoLabel.Text = string.Format("Players: %d/%d", playingP, maxP)
-                    InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    InfoLabel.Parent = ServerRow
-                    
-                    -- Tombol Join
-                    local JoinBtn = Instance.new("TextButton")
-                    JoinBtn.Size = UDim2.new(0, 75, 0, 24)
-                    JoinBtn.Position = UDim2.new(1, -83, 0.5, -12)
-                    JoinBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
-                    JoinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    JoinBtn.TextSize = 12
-                    JoinBtn.Font = Enum.Font.SourceSansBold
-                    JoinBtn.Text = "JOIN 🚀"
-                    JoinBtn.Parent = ServerRow
-                    
-                    local BtnCorner = Instance.new("UICorner")
-                    BtnCorner.CornerRadius = UDim.new(0, 4)
-                    BtnCorner.Parent = JoinBtn
-                    
-                    -- Aksi pas tombol Join diklik (Langsung pindah ke server itu tanpa ngulang-ngulang)
-                    local targetId = server.id
-                    JoinBtn.MouseButton1Click:Connect(function()
-                        JoinBtn.Text = "Joining..."
-                        pcall(function()
-                            TeleportService:TeleportToPlaceInstance(PlaceId, targetId, LocalPlayer)
-                        end)
-                    end)
-                end
+                -- Baris Server
+                local ServerCard = Instance.new("Frame")
+                ServerCard.Size = UDim2.new(1, -5, 0, 35)
+                ServerCard.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                ServerCard.BorderSizePixel = 0
+                ServerCard.Parent = ScrollingFrame
+
+                local CardCorner = Instance.new("UICorner")
+                CardCorner.CornerRadius = UDim.new(0, 6)
+                CardCorner.Parent = ServerCard
+
+                local InfoLabel = Instance.new("TextLabel")
+                InfoLabel.Size = UDim2.new(0.65, 0, 1, 0)
+                InfoLabel.Position = UDim2.new(0, 8, 0, 0)
+                InfoLabel.BackgroundTransparency = 1
+                InfoLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+                InfoLabel.TextSize = 12
+                InfoLabel.Font = Enum.Font.SourceSans
+                InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+                InfoLabel.Text = "Pemain: " .. server.playing .. "/" .. server.maxPlayers
+                InfoLabel.Parent = ServerCard
+
+                local JoinButton = Instance.new("TextButton")
+                JoinButton.Size = UDim2.new(0, 75, 0, 25)
+                JoinButton.Position = UDim2.new(1, -80, 0.5, -12.5)
+                JoinButton.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+                JoinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                JoinButton.TextSize = 12
+                JoinButton.Font = Enum.Font.SourceSansBold
+                JoinButton.Text = "JOIN"
+                JoinButton.Parent = ServerCard
+
+                local BtnCorner = Instance.new("UICorner")
+                BtnCorner.CornerRadius = UDim.new(0, 4)
+                BtnCorner.Parent = JoinButton
+
+                JoinButton.MouseButton1Click:Connect(function()
+                    JoinButton.Text = "Connecting..."
+                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
+                end)
             end
+        }
+        ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, count * 40)
+        
+        if count == 0 then
+            local EmptyText = Instance.new("TextLabel")
+            EmptyText.Size = UDim2.new(1, 0, 0, 30)
+            EmptyText.BackgroundTransparency = 1
+            EmptyText.TextColor3 = Color3.fromRGB(200, 80, 80)
+            EmptyText.TextSize = 12
+            EmptyText.Font = Enum.Font.SourceSans
+            EmptyText.Text = "Tidak ada server kosong ditemukan."
+            EmptyText.Parent = ScrollingFrame
         end
-        ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, count * 38)
+    else
+        local ErrText = Instance.new("TextLabel")
+        ErrText.Size = UDim2.new(1, 0, 0, 30)
+        ErrText.BackgroundTransparency = 1
+        ErrText.TextColor3 = Color3.fromRGB(255, 80, 80)
+        ErrText.TextSize = 12
+        ErrText.Font = Enum.Font.SourceSans
+        ErrText.Text = "Gagal memuat API Server (Rate Limited)."
+        ErrText.Parent = ScrollingFrame
     end
 end
 
--- Jalankan fungsi load list server saat script dieksekusi
-task.spawn(LoadServers)
+-- Jalankan fungsi load server
+LoadServers()
